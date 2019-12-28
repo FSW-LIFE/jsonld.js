@@ -52,11 +52,6 @@ const TEST_TYPES = {
         /compact-manifest.jsonld#tdi05$/,
         /compact-manifest.jsonld#tdi06$/,
         /compact-manifest.jsonld#tdi07$/,
-        // html
-        /html-manifest.jsonld#tc001$/,
-        /html-manifest.jsonld#tc002$/,
-        /html-manifest.jsonld#tc003$/,
-        /html-manifest.jsonld#tc004$/,
       ]
     },
     fn: 'compact',
@@ -79,33 +74,8 @@ const TEST_TYPES = {
         /expand-manifest.jsonld#t0120$/,
         /expand-manifest.jsonld#t0122$/,
         // html
-        /html-manifest.jsonld#te001$/,
-        /html-manifest.jsonld#te002$/,
-        /html-manifest.jsonld#te003$/,
-        /html-manifest.jsonld#te004$/,
-        /html-manifest.jsonld#te005$/,
-        /html-manifest.jsonld#te006$/,
-        /html-manifest.jsonld#te007$/,
-        /html-manifest.jsonld#te010$/,
-        /html-manifest.jsonld#te011$/,
-        /html-manifest.jsonld#te012$/,
-        /html-manifest.jsonld#te013$/,
-        /html-manifest.jsonld#te014$/,
-        /html-manifest.jsonld#te015$/,
-        /html-manifest.jsonld#te016$/,
-        /html-manifest.jsonld#te017$/,
-        /html-manifest.jsonld#te018$/,
-        /html-manifest.jsonld#te019$/,
-        /html-manifest.jsonld#te020$/,
-        /html-manifest.jsonld#te021$/,
-        /html-manifest.jsonld#te022$/,
-        /html-manifest.jsonld#tex01$/,
-        // HTML extraction
-        /expand-manifest.jsonld#thc01$/,
-        /expand-manifest.jsonld#thc02$/,
-        /expand-manifest.jsonld#thc03$/,
-        /expand-manifest.jsonld#thc04$/,
-        /expand-manifest.jsonld#thc05$/,
+        /html-manifest.jsonld#tex01$/,  // XHTML
+        /html-manifest.jsonld#te010$/,  // unescaped content
         // @type: @none
         /expand-manifest.jsonld#ttn02$/,
         // misc
@@ -190,9 +160,6 @@ const TEST_TYPES = {
       // FIXME
       idRegex: [
         // html
-        /html-manifest.jsonld#tf001$/,
-        /html-manifest.jsonld#tf002$/,
-        /html-manifest.jsonld#tf003$/,
         /html-manifest.jsonld#tf004$/,
         // included
         /flatten-manifest.jsonld#tin01$/,
@@ -348,26 +315,7 @@ const TEST_TYPES = {
         /toRdf-manifest.jsonld#twf06$/,
         /toRdf-manifest.jsonld#twf07$/,
         // html
-        /html-manifest.jsonld#tr001$/,
-        /html-manifest.jsonld#tr002$/,
-        /html-manifest.jsonld#tr003$/,
-        /html-manifest.jsonld#tr004$/,
-        /html-manifest.jsonld#tr005$/,
-        /html-manifest.jsonld#tr006$/,
-        /html-manifest.jsonld#tr007$/,
         /html-manifest.jsonld#tr010$/,
-        /html-manifest.jsonld#tr011$/,
-        /html-manifest.jsonld#tr012$/,
-        /html-manifest.jsonld#tr013$/,
-        /html-manifest.jsonld#tr014$/,
-        /html-manifest.jsonld#tr015$/,
-        /html-manifest.jsonld#tr016$/,
-        /html-manifest.jsonld#tr017$/,
-        /html-manifest.jsonld#tr018$/,
-        /html-manifest.jsonld#tr019$/,
-        /html-manifest.jsonld#tr020$/,
-        /html-manifest.jsonld#tr021$/,
-        /html-manifest.jsonld#tr022$/,
         // number fixes
         /toRdf-manifest.jsonld#trt01$/,
         // IRI resolution
@@ -1113,10 +1061,10 @@ function createDocumentLoader(test) {
     'https://w3c.github.io/json-ld-api/tests',
     'https://w3c.github.io/json-ld-framing/tests'
   ];
-  const localLoader = function(url) {
+  const localLoader = function(url, options) {
     // always load remote-doc tests remotely in node
     if(options.nodejs && test.manifest.name === 'Remote document') {
-      return jsonld.documentLoader(url);
+      return jsonld.documentLoader(url, options);
     }
 
     // FIXME: this check only works for main test suite and will not work if:
@@ -1133,29 +1081,38 @@ function createDocumentLoader(test) {
     }
 
     // load remotely
-    return jsonld.documentLoader(url);
+    return jsonld.documentLoader(url, options);
   };
 
   return localLoader;
 
   function loadLocally(url) {
-    const doc = {contextUrl: null, documentUrl: url, document: null};
-    const options = test.option;
+    const doc = {
+      contextUrl: null,
+      documentUrl: url,
+      document: null,
+      contentType: null,
+      profile: null
+    };
+    const options = test.option || {};
+    doc.contentType = options.contentType;
+    if(!doc.contentType && url.indexOf('.jsonld', url.length - 7) !== -1) {
+      doc.contentType = 'application/ld+json';
+    }
+    if(!doc.contentType && url.indexOf('.html', url.length - 5) !== -1) {
+      doc.contentType = 'text/html';
+    }
     if(options && url === test.base) {
       if('redirectTo' in options && parseInt(options.httpStatus, 10) >= 300) {
         doc.documentUrl = test.manifest.baseIri + options.redirectTo;
       } else if('httpLink' in options) {
-        let contentType = options.contentType || null;
-        if(!contentType && url.indexOf('.jsonld', url.length - 7) !== -1) {
-          contentType = 'application/ld+json';
-        }
         let linkHeader = options.httpLink;
         if(Array.isArray(linkHeader)) {
           linkHeader = linkHeader.join(',');
         }
         linkHeader = jsonld.parseLinkHeader(
           linkHeader)['http://www.w3.org/ns/json-ld#context'];
-        if(linkHeader && contentType !== 'application/ld+json') {
+        if(linkHeader && doc.contentType !== 'application/ld+json') {
           if(Array.isArray(linkHeader)) {
             throw {name: 'multiple context link headers'};
           }
@@ -1182,12 +1139,22 @@ function createDocumentLoader(test) {
       });
     }
 
-    return p.then(readJson).then(json => {
-      doc.document = json;
-      return doc;
-    }).catch(() => {
-      throw {name: 'loading document failed', url};
-    });
+    // parse JSON, if appropriate
+    if(!doc.contentType || doc.contentType.includes('json')) {
+      return p.then(readJson).then(json => {
+        doc.document = json;
+        return doc;
+      }).catch(() => {
+        throw {name: 'loading document failed', url};
+      });
+    } else {
+      return p.then(readFile).then(content => {
+        doc.document = content;
+        return doc;
+      }).catch(() => {
+        throw {name: 'loading document failed', url};
+      });
+    }
   }
 }
 
