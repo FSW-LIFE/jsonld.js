@@ -313,7 +313,7 @@ const TEST_TYPES = {
         /toRdf-manifest.jsonld#twf06$/,
         /toRdf-manifest.jsonld#twf07$/,
         // html
-        // /html-manifest.jsonld#tr010$/,  // unescaped content
+        /html-manifest.jsonld#tr010$/,  // unescaped content
         // number fixes
         /toRdf-manifest.jsonld#trt01$/,
         // IRI resolution
