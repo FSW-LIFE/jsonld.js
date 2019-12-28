@@ -159,8 +159,6 @@ const TEST_TYPES = {
       specVersion: ['json-ld-1.0'],
       // FIXME
       idRegex: [
-        // html
-        /html-manifest.jsonld#tf004$/,
         // included
         /flatten-manifest.jsonld#tin01$/,
         /flatten-manifest.jsonld#tin02$/,
@@ -315,7 +313,7 @@ const TEST_TYPES = {
         /toRdf-manifest.jsonld#twf06$/,
         /toRdf-manifest.jsonld#twf07$/,
         // html
-        /html-manifest.jsonld#tr010$/,
+        // /html-manifest.jsonld#tr010$/,  // unescaped content
         // number fixes
         /toRdf-manifest.jsonld#trt01$/,
         // IRI resolution
